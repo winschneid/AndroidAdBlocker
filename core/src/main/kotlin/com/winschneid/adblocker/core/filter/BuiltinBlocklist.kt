@@ -30,6 +30,6 @@ object BuiltinBlocklist {
         // Japanese ad networks
         "nend.net", "ad-stir.com", "fout.jp", "impact-ad.jp", "adingo.jp", "socdm.com", "genieesspv.jp",
         "gssprt.jp", "spad.i-mobile.co.jp", "spdeliver.i-mobile.co.jp", "send.microad.jp", "yads.c.yimg.jp",
-        "l.logly.co.jp", "ladsp.com",
+        "l.logly.co.jp", "ladsp.com", "ust-ad.com",
     )
 }
