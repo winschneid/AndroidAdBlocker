@@ -69,6 +69,12 @@ object DnsCodec {
     const val CLASS_IN = 1
     const val DEFAULT_BLOCK_TTL_SECONDS = 300L
 
+    /**
+     * How long clients may cache a block response that carries no address (NXDOMAIN / NODATA).
+     * Kept short so that a domain the user has just allowed starts resolving again almost immediately.
+     */
+    const val DEFAULT_NEGATIVE_TTL_SECONDS = 10L
+
     const val FLAG_QR = 0x8000
     const val FLAG_RD = 0x0100
     const val FLAG_RA = 0x0080
@@ -78,6 +84,20 @@ object DnsCodec {
 
     private const val MAX_NAME_LENGTH = 253
     private const val MAX_POINTER_HOPS = 16
+
+    /** NAME (compression pointer) + TYPE + CLASS + TTL + RDLENGTH. */
+    private const val RECORD_HEADER_LENGTH = 2 + 2 + 2 + 4 + 2
+
+    /** Pointer to the question name, which always starts right after the header. */
+    private const val QUESTION_NAME_POINTER = 0xC000 or HEADER_LENGTH
+
+    // The synthetic SOA only exists to make negative answers cacheable; ".invalid" can never be a real zone.
+    private val SOA_MNAME = encodeName("adblocker.invalid")
+    private val SOA_RNAME = encodeName("nobody.invalid")
+    private const val SOA_SERIAL = 1L
+    private const val SOA_REFRESH = 3600L
+    private const val SOA_RETRY = 600L
+    private const val SOA_EXPIRE = 86400L
 
     fun parseQuery(data: ByteArray, length: Int = data.size): DnsQuery? {
         if (length < HEADER_LENGTH || length > data.size) return null
@@ -134,11 +154,18 @@ object DnsCodec {
         return Pair(sb.toString(), if (end < 0) pos else end)
     }
 
-    /** Builds the response for a blocked [query]. */
+    /**
+     * Builds the response for a blocked [query].
+     *
+     * Answers without an address record (NXDOMAIN, or NODATA for non-address types in [BlockResponseMode.ZERO_IP])
+     * carry a synthetic SOA record in the authority section. Without it neither the Android resolver nor browsers
+     * cache the negative answer (RFC 2308), and every retry of a blocked name would hit the VPN again.
+     */
     fun buildBlockedResponse(
         query: DnsQuery,
         mode: BlockResponseMode,
         ttlSeconds: Long = DEFAULT_BLOCK_TTL_SECONDS,
+        negativeTtlSeconds: Long = DEFAULT_NEGATIVE_TTL_SECONDS,
     ): ByteArray {
         val question = query.question
         val questionLength = query.questionEnd - HEADER_LENGTH
@@ -152,23 +179,53 @@ object DnsCodec {
             null
         }
         val rcode = if (mode == BlockResponseMode.NXDOMAIN) RCODE_NXDOMAIN else RCODE_NOERROR
-        val answerLength = if (rdata != null) 2 + 2 + 2 + 4 + 2 + rdata.size else 0
+        val answerLength = if (rdata != null) RECORD_HEADER_LENGTH + rdata.size else 0
+        val soaRdataLength = SOA_MNAME.size + SOA_RNAME.size + 5 * 4
+        val authorityLength = if (rdata == null) RECORD_HEADER_LENGTH + soaRdataLength else 0
 
-        val out = ByteArray(HEADER_LENGTH + questionLength + answerLength)
+        val out = ByteArray(HEADER_LENGTH + questionLength + answerLength + authorityLength)
         put16(out, 0, query.id)
         put16(out, 2, FLAG_QR or (query.flags and FLAG_RD) or FLAG_RA or rcode)
         put16(out, 4, 1) // QDCOUNT
-        put16(out, 6, if (rdata != null) 1 else 0) // ANCOUNT; NSCOUNT and ARCOUNT stay 0
+        put16(out, 6, if (rdata != null) 1 else 0) // ANCOUNT
+        put16(out, 8, if (rdata == null) 1 else 0) // NSCOUNT; ARCOUNT stays 0
         System.arraycopy(query.raw, HEADER_LENGTH, out, HEADER_LENGTH, questionLength)
+        var p = HEADER_LENGTH + questionLength
         if (rdata != null) {
-            var p = HEADER_LENGTH + questionLength
-            out[p++] = 0xC0.toByte() // compression pointer to the question name
-            out[p++] = HEADER_LENGTH.toByte()
-            put16(out, p, question.type); p += 2
-            put16(out, p, question.clazz); p += 2
-            put32(out, p, ttlSeconds); p += 4
-            put16(out, p, rdata.size); p += 2
+            p = putRecordHeader(out, p, question.type, question.clazz, ttlSeconds, rdata.size)
             System.arraycopy(rdata, 0, out, p, rdata.size)
+        } else {
+            p = putRecordHeader(out, p, DnsType.SOA, question.clazz, negativeTtlSeconds, soaRdataLength)
+            System.arraycopy(SOA_MNAME, 0, out, p, SOA_MNAME.size); p += SOA_MNAME.size
+            System.arraycopy(SOA_RNAME, 0, out, p, SOA_RNAME.size); p += SOA_RNAME.size
+            put32(out, p, SOA_SERIAL); p += 4
+            put32(out, p, SOA_REFRESH); p += 4
+            put32(out, p, SOA_RETRY); p += 4
+            put32(out, p, SOA_EXPIRE); p += 4
+            put32(out, p, negativeTtlSeconds) // MINIMUM: the negative-caching TTL
+        }
+        return out
+    }
+
+    /** Writes a resource record header owned by the question name; returns the offset of its RDATA. */
+    private fun putRecordHeader(out: ByteArray, offset: Int, type: Int, clazz: Int, ttlSeconds: Long, rdLength: Int): Int {
+        put16(out, offset, QUESTION_NAME_POINTER)
+        put16(out, offset + 2, type)
+        put16(out, offset + 4, clazz)
+        put32(out, offset + 6, ttlSeconds)
+        put16(out, offset + 10, rdLength)
+        return offset + RECORD_HEADER_LENGTH
+    }
+
+    /** Encodes [name] in uncompressed wire format (length-prefixed labels, terminated by the root label). */
+    private fun encodeName(name: String): ByteArray {
+        val labels = name.trimEnd('.').split('.')
+        val out = ByteArray(labels.sumOf { it.length + 1 } + 1)
+        var p = 0
+        for (label in labels) {
+            require(label.length in 1..63) { "Invalid label '$label' in $name" }
+            out[p++] = label.length.toByte()
+            for (ch in label) out[p++] = ch.code.toByte()
         }
         return out
     }
@@ -181,19 +238,13 @@ object DnsCodec {
         clazz: Int = CLASS_IN,
         recursionDesired: Boolean = true,
     ): ByteArray {
-        val labels = name.trimEnd('.').split('.')
-        val nameLength = labels.sumOf { it.length + 1 } + 1
-        val out = ByteArray(HEADER_LENGTH + nameLength + 4)
+        val encodedName = encodeName(name)
+        val out = ByteArray(HEADER_LENGTH + encodedName.size + 4)
         put16(out, 0, id)
         put16(out, 2, if (recursionDesired) FLAG_RD else 0)
         put16(out, 4, 1)
-        var p = HEADER_LENGTH
-        for (label in labels) {
-            require(label.length in 1..63) { "Invalid label '$label' in $name" }
-            out[p++] = label.length.toByte()
-            for (ch in label) out[p++] = ch.code.toByte()
-        }
-        out[p++] = 0
+        System.arraycopy(encodedName, 0, out, HEADER_LENGTH, encodedName.size)
+        val p = HEADER_LENGTH + encodedName.size
         put16(out, p, type)
         put16(out, p + 2, clazz)
         return out

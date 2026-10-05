@@ -80,13 +80,42 @@ class DnsCodecTest {
         assertEquals(0x8183, u16(response, 2)) // QR | RD | RA | NXDOMAIN
         assertEquals(1, u16(response, 4))
         assertEquals(0, u16(response, 6))
-        assertEquals(0, u16(response, 8))
+        assertEquals(1, u16(response, 8)) // the SOA that makes the answer cacheable
         assertEquals(0, u16(response, 10))
-        assertEquals(query.raw.size, response.size)
         assertArrayEquals(
             query.raw.copyOfRange(DnsCodec.HEADER_LENGTH, query.raw.size),
-            response.copyOfRange(DnsCodec.HEADER_LENGTH, response.size),
+            response.copyOfRange(DnsCodec.HEADER_LENGTH, query.questionEnd),
         )
+        assertSoa(response, query.questionEnd, DnsCodec.DEFAULT_NEGATIVE_TTL_SECONDS)
+    }
+
+    @Test
+    fun negativeResponsesCarrySoaWithRequestedTtl() {
+        val query = DnsCodec.parseQuery(DnsCodec.encodeQuery(3, "ads.example.com", DnsType.HTTPS))!!
+        for (mode in BlockResponseMode.entries) {
+            val response = DnsCodec.buildBlockedResponse(query, mode, negativeTtlSeconds = 42)
+            assertEquals(0, u16(response, 6))
+            assertEquals(1, u16(response, 8))
+            assertSoa(response, query.questionEnd, 42)
+        }
+    }
+
+    /** Checks that a well-formed SOA record owned by the question name starts at [offset] and ends the message. */
+    private fun assertSoa(response: ByteArray, offset: Int, expectedTtl: Long) {
+        assertEquals(0xC00C, u16(response, offset))
+        assertEquals(DnsType.SOA, u16(response, offset + 2))
+        assertEquals(DnsCodec.CLASS_IN, u16(response, offset + 4))
+        assertEquals(expectedTtl, u32(response, offset + 6))
+        val rdLength = u16(response, offset + 10)
+        val rdata = offset + 12
+        assertEquals(response.size, rdata + rdLength)
+
+        val (mname, afterMname) = DnsCodec.readName(response, rdata, response.size)!!
+        val (rname, afterRname) = DnsCodec.readName(response, afterMname, response.size)!!
+        assertTrue(mname.endsWith(".invalid"))
+        assertTrue(rname.endsWith(".invalid"))
+        assertEquals(response.size, afterRname + 5 * 4) // SERIAL, REFRESH, RETRY, EXPIRE, MINIMUM
+        assertEquals(expectedTtl, u32(response, afterRname + 4 * 4)) // MINIMUM is the negative-caching TTL
     }
 
     @Test
@@ -110,6 +139,7 @@ class DnsCodecTest {
         assertEquals(4, u16(responseA, answer + 10))
         assertArrayEquals(ByteArray(4), responseA.copyOfRange(answer + 12, answer + 16))
         assertEquals(answer + 16, responseA.size)
+        assertEquals(0, u16(responseA, 8))
 
         val aaaa = DnsCodec.parseQuery(DnsCodec.encodeQuery(8, "ads.example.com", DnsType.AAAA))!!
         val responseAaaa = DnsCodec.buildBlockedResponse(aaaa, BlockResponseMode.ZERO_IP)
@@ -120,7 +150,7 @@ class DnsCodecTest {
         val responseHttps = DnsCodec.buildBlockedResponse(https, BlockResponseMode.ZERO_IP)
         assertEquals(0, u16(responseHttps, 6))
         assertEquals(DnsCodec.RCODE_NOERROR, DnsCodec.responseCode(responseHttps))
-        assertEquals(https.raw.size, responseHttps.size)
+        assertSoa(responseHttps, https.questionEnd, DnsCodec.DEFAULT_NEGATIVE_TTL_SECONDS) // NODATA is cacheable too
     }
 
     @Test
