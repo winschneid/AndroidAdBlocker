@@ -21,6 +21,8 @@ data class UserSettings(
     val upstream: UpstreamDns = UpstreamDns.SYSTEM,
     val customUpstream: String = "",
     val blockMode: BlockResponseMode = BlockResponseMode.NXDOMAIN,
+    /** Also block names whose answer is an alias (CNAME) of a blocked name. Opt-in: it can break sites. */
+    val blockAliases: Boolean = false,
     val ipv6Enabled: Boolean = true,
     val autoStartOnBoot: Boolean = true,
     val autoUpdateLists: Boolean = true,
@@ -50,6 +52,7 @@ class AppSettings(context: Context) {
         upstream = enumValue(prefs.getString(KEY_UPSTREAM, null), UpstreamDns.SYSTEM),
         customUpstream = prefs.getString(KEY_CUSTOM_UPSTREAM, "") ?: "",
         blockMode = enumValue(prefs.getString(KEY_BLOCK_MODE, null), BlockResponseMode.NXDOMAIN),
+        blockAliases = prefs.getBoolean(KEY_BLOCK_ALIASES, false),
         ipv6Enabled = prefs.getBoolean(KEY_IPV6, true),
         autoStartOnBoot = prefs.getBoolean(KEY_AUTO_START, true),
         autoUpdateLists = prefs.getBoolean(KEY_AUTO_UPDATE, true),
@@ -63,6 +66,7 @@ class AppSettings(context: Context) {
             .putString(KEY_UPSTREAM, settings.upstream.name)
             .putString(KEY_CUSTOM_UPSTREAM, settings.customUpstream)
             .putString(KEY_BLOCK_MODE, settings.blockMode.name)
+            .putBoolean(KEY_BLOCK_ALIASES, settings.blockAliases)
             .putBoolean(KEY_IPV6, settings.ipv6Enabled)
             .putBoolean(KEY_AUTO_START, settings.autoStartOnBoot)
             .putBoolean(KEY_AUTO_UPDATE, settings.autoUpdateLists)
@@ -86,6 +90,7 @@ class AppSettings(context: Context) {
         const val KEY_UPSTREAM = "upstream"
         const val KEY_CUSTOM_UPSTREAM = "custom_upstream"
         const val KEY_BLOCK_MODE = "block_mode"
+        const val KEY_BLOCK_ALIASES = "block_aliases"
         const val KEY_IPV6 = "ipv6"
         const val KEY_AUTO_START = "auto_start"
         const val KEY_AUTO_UPDATE = "auto_update"

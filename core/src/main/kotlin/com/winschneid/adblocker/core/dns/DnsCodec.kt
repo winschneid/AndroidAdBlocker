@@ -84,6 +84,7 @@ object DnsCodec {
 
     private const val MAX_NAME_LENGTH = 253
     private const val MAX_POINTER_HOPS = 16
+    private const val MAX_ANSWERS_INSPECTED = 32
 
     /** NAME (compression pointer) + TYPE + CLASS + TTL + RDLENGTH. */
     private const val RECORD_HEADER_LENGTH = 2 + 2 + 2 + 4 + 2
@@ -205,6 +206,34 @@ object DnsCodec {
             put32(out, p, negativeTtlSeconds) // MINIMUM: the negative-caching TTL
         }
         return out
+    }
+
+    /**
+     * Returns the targets of the CNAME records in the answer section of [response] (lower-cased, in message
+     * order). The result is empty when the message is not a response or has no CNAME; parsing simply stops at
+     * the first malformed record, so a truncated answer yields the targets seen up to that point.
+     */
+    fun cnameTargets(response: ByteArray, length: Int = response.size): List<String> {
+        if (length < HEADER_LENGTH || length > response.size || !isResponse(response, length)) return emptyList()
+        var pos = HEADER_LENGTH
+        repeat(u16(response, 4)) { // skip the question section
+            val afterName = readName(response, pos, length)?.second ?: return emptyList()
+            pos = afterName + 4
+        }
+        var targets: MutableList<String>? = null
+        repeat(minOf(u16(response, 6), MAX_ANSWERS_INSPECTED)) {
+            val afterName = readName(response, pos, length)?.second ?: return targets.orEmpty()
+            val rdata = afterName + 10 // TYPE, CLASS, TTL and RDLENGTH precede the record data
+            if (rdata > length) return targets.orEmpty()
+            val end = rdata + u16(response, afterName + 8)
+            if (end > length) return targets.orEmpty()
+            if (u16(response, afterName) == DnsType.CNAME) {
+                val target = readName(response, rdata, length)?.first
+                if (target != null) (targets ?: ArrayList<String>(2).also { targets = it }).add(target)
+            }
+            pos = end
+        }
+        return targets.orEmpty()
     }
 
     /** Writes a resource record header owned by the question name; returns the offset of its RDATA. */

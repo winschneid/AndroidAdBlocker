@@ -6,6 +6,9 @@ enum class Decision(val blocked: Boolean) {
     ALLOWED_BY_USER(false),
     BLOCKED(true),
     BLOCKED_BY_USER(true),
+
+    /** The name itself is not listed, but its answer was a CNAME chain leading to a blocked name. */
+    BLOCKED_BY_CNAME(true),
 }
 
 /**

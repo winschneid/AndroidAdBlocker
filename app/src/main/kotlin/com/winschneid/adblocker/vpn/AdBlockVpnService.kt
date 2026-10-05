@@ -112,7 +112,7 @@ class AdBlockVpnService : VpnService() {
             return
         }
 
-        val engine = DnsProxyEngine(Graph.blocklists.matcher.value, settings.blockMode)
+        val engine = DnsProxyEngine(Graph.blocklists.matcher.value, settings.blockMode, settings.blockAliases)
         val newSession = try {
             VpnSession(this, tun, engine, upstreamsFor(settings), settings.queryLogEnabled)
         } catch (e: IOException) {
@@ -142,6 +142,7 @@ class AdBlockVpnService : VpnService() {
             launch {
                 Graph.settings.flow.collect { settings ->
                     engine.blockMode = settings.blockMode
+                    engine.blockAliases = settings.blockAliases
                     applyUpstreams(activeSession, settings)
                     activeSession.logEnabled = settings.queryLogEnabled
                     if (settings.ipv6Enabled != sessionIpv6 && session === activeSession) {

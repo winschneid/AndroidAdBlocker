@@ -1,5 +1,8 @@
 package com.winschneid.adblocker.core.engine
 
+import com.winschneid.adblocker.core.dns.DnsCodec
+import com.winschneid.adblocker.core.dns.DnsType
+import com.winschneid.adblocker.core.filter.Decision
 import com.winschneid.adblocker.core.net.UdpDatagram
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -13,10 +16,14 @@ class ConstantRandom(private val value: Int) : Random() {
 }
 
 class PendingQueryTableTest {
-    private fun context(id: Int) = ReplyContext(
-        UdpDatagram(4, byteArrayOf(10, 0, 0, 1), byteArrayOf(10, 0, 0, 2), 40000, 53, ByteArray(0)),
-        id,
-    )
+    private fun context(id: Int): ReplyContext {
+        val payload = DnsCodec.encodeQuery(id, "example.com", DnsType.A)
+        return ReplyContext(
+            UdpDatagram(4, byteArrayOf(10, 0, 0, 1), byteArrayOf(10, 0, 0, 2), 40000, 53, payload),
+            DnsCodec.parseQuery(payload)!!,
+            Decision.ALLOWED,
+        )
+    }
 
     @Test
     fun registersAndRemoves() {

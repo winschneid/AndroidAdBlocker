@@ -153,6 +153,69 @@ class DnsCodecTest {
         assertSoa(responseHttps, https.questionEnd, DnsCodec.DEFAULT_NEGATIVE_TTL_SECONDS) // NODATA is cacheable too
     }
 
+    /** A response to `alias.example.com A`: alias -> CNAME edge.Tracker.NET -> CNAME cdn.example.com -> A. */
+    private fun cnameChainResponse(): ByteArray {
+        val query = DnsCodec.encodeQuery(0x77, "alias.example.com", DnsType.A)
+        val out = java.io.ByteArrayOutputStream()
+        out.write(query)
+        fun record(name: ByteArray, type: Int, rdata: ByteArray) {
+            out.write(name)
+            out.write(byteArrayOf(0, type.toByte(), 0, DnsCodec.CLASS_IN.toByte(), 0, 0, 0, 60, 0, rdata.size.toByte()))
+            out.write(rdata)
+        }
+        fun name(vararg labels: String): ByteArray {
+            val encoded = java.io.ByteArrayOutputStream()
+            for (label in labels) {
+                encoded.write(label.length)
+                encoded.write(label.toByteArray())
+            }
+            encoded.write(0)
+            return encoded.toByteArray()
+        }
+        val questionName = byteArrayOf(0xC0.toByte(), DnsCodec.HEADER_LENGTH.toByte())
+        val firstTargetOffset = query.size + questionName.size + 10
+        record(questionName, DnsType.CNAME, name("edge", "Tracker", "NET"))
+        // Owned by the first target (compression pointer); its own target is "cdn" followed by a pointer to
+        // the "example.com" part of the question name, the way real servers compress answers.
+        val exampleComOffset = DnsCodec.HEADER_LENGTH + 1 + "alias".length
+        val secondTarget = byteArrayOf(3, 'c'.code.toByte(), 'd'.code.toByte(), 'n'.code.toByte(), 0xC0.toByte(), exampleComOffset.toByte())
+        record(byteArrayOf(0xC0.toByte(), firstTargetOffset.toByte()), DnsType.CNAME, secondTarget)
+        record(name("cdn", "example", "com"), DnsType.A, byteArrayOf(192.toByte(), 0, 2, 1))
+        val message = out.toByteArray()
+        message[2] = (message[2].toInt() or 0x80).toByte() // QR
+        message[7] = 3 // ANCOUNT
+        return message
+    }
+
+    @Test
+    fun extractsCnameTargetsFromAnswers() {
+        val response = cnameChainResponse()
+        assertEquals(listOf("edge.tracker.net", "cdn.example.com"), DnsCodec.cnameTargets(response))
+    }
+
+    @Test
+    fun cnameTargetsIgnoresQueriesPlainAnswersAndGarbage() {
+        val query = DnsCodec.encodeQuery(1, "example.com", DnsType.A)
+        assertTrue(DnsCodec.cnameTargets(query).isEmpty()) // not a response
+
+        val blocked = DnsCodec.buildBlockedResponse(DnsCodec.parseQuery(query)!!, BlockResponseMode.ZERO_IP)
+        assertTrue(DnsCodec.cnameTargets(blocked).isEmpty()) // an answer without CNAME records
+
+        assertTrue(DnsCodec.cnameTargets(ByteArray(3)).isEmpty())
+        assertTrue(DnsCodec.cnameTargets(ByteArray(64).also { it[2] = 0x80.toByte(); it[5] = 9 }).isEmpty())
+    }
+
+    @Test
+    fun cnameTargetsStopsAtTruncatedRecords() {
+        val response = cnameChainResponse()
+        // Cut inside the second CNAME record: the first target is still reported, nothing throws.
+        val firstRecordEnd = DnsCodec.encodeQuery(0x77, "alias.example.com", DnsType.A).size + 2 + 10 + 18
+        for (length in DnsCodec.HEADER_LENGTH until response.size) {
+            val targets = DnsCodec.cnameTargets(response, length)
+            if (length < firstRecordEnd) assertTrue(targets.isEmpty()) else assertEquals("edge.tracker.net", targets.first())
+        }
+    }
+
     @Test
     fun typeNamesAreHumanReadable() {
         assertEquals("A", DnsType.name(DnsType.A))

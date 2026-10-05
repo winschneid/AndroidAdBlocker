@@ -67,6 +67,8 @@
     <string name="log_allowed">許可</string>
     <string name="log_blocked_by_user">ブロック（手動ルール）</string>
     <string name="log_allowed_by_user">許可（手動ルール）</string>
+    <string name="log_blocked_by_cname">ブロック（CNAME）</string>
+    <string name="log_cname_target">ブロック対象の %1$s の別名です</string>
     <string name="log_count">直近 %1$d 件</string>
 
     <string name="settings_upstream_title">上流 DNS サーバー</string>
@@ -87,6 +89,8 @@
     <string name="settings_autoupdate">ブロックリストを自動更新（1 日ごと）</string>
     <string name="settings_querylog">クエリログを記録</string>
     <string name="settings_builtin">内蔵の基本リストを使用</string>
+    <string name="settings_block_aliases">別名（CNAME）で隠された広告ドメインもブロック</string>
+    <string name="settings_block_aliases_summary">広告ブロックを検知するサイトでは、記事の代わりに警告画面が出ることがあります</string>
     <string name="settings_about_title">このアプリについて</string>
     <string name="settings_about_version">バージョン %1$s</string>
     <string name="settings_about_text">VpnService を使ったローカル VPN として動作し、端末の DNS 問い合わせだけを横取りして広告・トラッカーのドメインを遮断します。経路として VPN に乗るのは DNS だけで、他の通信は通常どおり直接流れます。root 不要です。</string>

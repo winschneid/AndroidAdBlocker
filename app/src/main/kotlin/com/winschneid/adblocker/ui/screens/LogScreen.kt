@@ -108,7 +108,11 @@ fun LogScreen(viewModel: MainViewModel) {
         AlertDialog(
             onDismissRequest = { selected = null },
             title = { Text(entry.host) },
-            text = { Text(DnsType.name(entry.type) + " · " + stringResource(entry.decision.labelRes())) },
+            text = {
+                val summary = DnsType.name(entry.type) + " · " + stringResource(entry.decision.labelRes())
+                val alias = entry.blockedAlias
+                Text(if (alias == null) summary else summary + "\n" + stringResource(R.string.log_cname_target, alias))
+            },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.addRule(entry.host, allow = true)
@@ -130,6 +134,7 @@ private fun Decision.labelRes(): Int = when (this) {
     Decision.ALLOWED_BY_USER -> R.string.log_allowed_by_user
     Decision.BLOCKED -> R.string.log_blocked
     Decision.BLOCKED_BY_USER -> R.string.log_blocked_by_user
+    Decision.BLOCKED_BY_CNAME -> R.string.log_blocked_by_cname
 }
 
 @Composable

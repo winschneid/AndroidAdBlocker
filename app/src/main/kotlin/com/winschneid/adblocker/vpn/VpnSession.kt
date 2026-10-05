@@ -80,7 +80,7 @@ internal class VpnSession(
         when (val verdict = engine.process(buffer, length)) {
             is Verdict.Blocked -> {
                 writeToTun(verdict.packet)
-                VpnStateHolder.record(verdict.host, verdict.type, verdict.decision, logEnabled)
+                VpnStateHolder.record(verdict.host, verdict.type, verdict.decision, logEnabled, verdict.blockedAlias)
             }
             is Verdict.Forward -> {
                 val targets = upstreams
@@ -121,7 +121,12 @@ internal class VpnSession(
             val response = ByteArray(length)
             buffer.get(response)
             val context = pending.remove(DnsCodec.transactionId(response)) ?: continue
-            writeToTun(engine.buildReply(context, response, length))
+            val reply = engine.handleUpstreamResponse(context, response, length)
+            writeToTun(reply.packet)
+            reply.blockedAlias?.let { target ->
+                val question = context.query.question
+                VpnStateHolder.recordCloaked(question.name, question.type, target, logEnabled)
+            }
         }
         Log.d(TAG, "Upstream loop finished")
     }

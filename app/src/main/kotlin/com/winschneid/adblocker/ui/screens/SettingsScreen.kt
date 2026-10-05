@@ -115,6 +115,12 @@ fun SettingsScreen(viewModel: MainViewModel) {
             checked = settings.useBuiltinList,
             onCheckedChange = { value -> viewModel.updateSettings { it.copy(useBuiltinList = value) } },
         )
+        SwitchRow(
+            title = stringResource(R.string.settings_block_aliases),
+            subtitle = stringResource(R.string.settings_block_aliases_summary),
+            checked = settings.blockAliases,
+            onCheckedChange = { value -> viewModel.updateSettings { it.copy(blockAliases = value) } },
+        )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
         SectionTitle(stringResource(R.string.settings_about_title))

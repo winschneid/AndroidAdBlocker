@@ -67,6 +67,8 @@
     <string name="log_allowed">Allowed</string>
     <string name="log_blocked_by_user">Blocked (user rule)</string>
     <string name="log_allowed_by_user">Allowed (user rule)</string>
+    <string name="log_blocked_by_cname">Blocked (CNAME)</string>
+    <string name="log_cname_target">Alias of the blocked name %1$s</string>
     <string name="log_count">Last %1$d queries</string>
 
     <string name="settings_upstream_title">Upstream DNS server</string>
@@ -87,6 +89,8 @@
     <string name="settings_autoupdate">Update blocklists automatically (daily)</string>
     <string name="settings_querylog">Keep a query log</string>
     <string name="settings_builtin">Use the built-in base list</string>
+    <string name="settings_block_aliases">Also block ad domains hidden behind aliases (CNAME)</string>
+    <string name="settings_block_aliases_summary">Sites that detect ad blocking may show a notice instead of their content</string>
     <string name="settings_about_title">About</string>
     <string name="settings_about_version">Version %1$s</string>
     <string name="settings_about_text">Runs as a local VPN built on VpnService that intercepts only the DNS queries of the device and blocks advertising and tracking domains. Only DNS is routed through the VPN; everything else flows directly as usual. No root required.</string>
