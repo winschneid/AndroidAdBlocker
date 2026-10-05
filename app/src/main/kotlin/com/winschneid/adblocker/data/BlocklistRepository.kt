@@ -70,7 +70,11 @@ class BlocklistRepository(
     val updating: StateFlow<Boolean> = updatingState.asStateFlow()
 
     private val updateMutex = Mutex()
-    private val rebuildRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    // replay = 1 keeps the latest request for a collector that subscribes late. Without it the request made
+    // in init is emitted before the collector below is running and gets dropped, so after every process start
+    // only the built-in list would be active until the next list update.
+    private val rebuildRequests = MutableSharedFlow<Unit>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     init {
         scope.launch {
