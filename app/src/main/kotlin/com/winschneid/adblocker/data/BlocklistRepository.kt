@@ -111,6 +111,10 @@ class BlocklistRepository(
 
     /** Downloads every (enabled) source. */
     suspend fun updateAll(onlyEnabled: Boolean = true): UpdateReport = updateMutex.withLock {
+        updateAllLocked(onlyEnabled)
+    }
+
+    private suspend fun updateAllLocked(onlyEnabled: Boolean): UpdateReport {
         updatingState.value = true
         try {
             var updated = 0
@@ -122,7 +126,7 @@ class BlocklistRepository(
             }
             settings.update { it.copy(lastListUpdateAttempt = System.currentTimeMillis()) }
             if (updated > 0) requestRebuild()
-            UpdateReport(updated, failures)
+            return UpdateReport(updated, failures)
         } finally {
             updatingState.value = false
         }
@@ -159,12 +163,19 @@ class BlocklistRepository(
 
     /** Runs "update all" when lists are stale (older than a day) or have never been downloaded. */
     suspend fun autoUpdateIfDue() {
+        if (!isAutoUpdateDue()) return
+        updateMutex.withLock {
+            // Re-check under the lock: another caller may have just finished the same update.
+            if (isAutoUpdateDue()) updateAllLocked(onlyEnabled = true)
+        }
+    }
+
+    private fun isAutoUpdateDue(): Boolean {
         val current = settings.current
-        if (!current.autoUpdateLists) return
-        val now = System.currentTimeMillis()
-        val stale = now - current.lastListUpdateAttempt > AUTO_UPDATE_INTERVAL_MILLIS
+        if (!current.autoUpdateLists) return false
+        val stale = System.currentTimeMillis() - current.lastListUpdateAttempt > AUTO_UPDATE_INTERVAL_MILLIS
         val missing = sourcesState.value.any { it.enabled && it.lastUpdated == 0L }
-        if ((stale || missing) && !updatingState.value) updateAll()
+        return stale || missing
     }
 
     fun setSourceEnabled(id: String, enabled: Boolean) {
