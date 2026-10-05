@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ad Blocker</string>
+
+    <string name="nav_home">Home</string>
+    <string name="nav_lists">Lists</string>
+    <string name="nav_log">Log</string>
+    <string name="nav_settings">Settings</string>
+
+    <string name="status_running">Active</string>
+    <string name="status_stopped">Stopped</string>
+    <string name="status_starting">Starting…</string>
+    <string name="status_error">Error</string>
+
+    <string name="action_start">Start</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_update_all">Update all</string>
+    <string name="action_update">Update</string>
+    <string name="action_add">Add</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_open_settings">Open settings</string>
+    <string name="action_allow">Add to allowlist</string>
+    <string name="action_deny">Add to blocklist</string>
+
+    <string name="home_description">Runs as an on-device local VPN that intercepts DNS lookups and blocks advertising and tracking domains before they resolve. Works for every app including Chrome. Your actual traffic never goes through the VPN.</string>
+    <string name="stats_blocked">Blocked</string>
+    <string name="stats_total">Queries</string>
+    <string name="stats_entries">Blocked domains</string>
+    <string name="stats_block_rate">%1$d%% blocked</string>
+    <string name="warning_private_dns_title">Private DNS is enabled</string>
+    <string name="warning_private_dns">Android Private DNS is set to a specific hostname, so lookups from Chrome and other apps bypass this app. Set Private DNS to Off or Automatic in the network settings.</string>
+    <string name="info_chrome_title">Notes for Chrome</string>
+    <string name="info_chrome">If Chrome › Settings › Privacy and security › Use secure DNS is set to a custom provider, Chrome encrypts its DNS and sends it directly, so blocking will not work. Keep it on "Use your current service provider". Ads served from the same domain as the content (for example the YouTube app) cannot be blocked at the DNS level.</string>
+    <string name="error_vpn_permission">VPN permission was not granted</string>
+    <string name="error_vpn_failed">Could not start the VPN: %1$s</string>
+    <string name="home_lists_not_downloaded">No blocklist has been downloaded yet, so only the small built-in list is active. Update the lists from the Lists tab.</string>
+
+    <string name="lists_title_sources">Blocklists</string>
+    <string name="lists_entries">%1$d entries</string>
+    <string name="lists_never_updated">Not downloaded yet</string>
+    <string name="lists_updated_at">Updated %1$s</string>
+    <string name="lists_error">Error: %1$s</string>
+    <string name="lists_add_source">Add list</string>
+    <string name="lists_source_name">Name</string>
+    <string name="lists_source_url">URL</string>
+    <string name="lists_invalid_url">Enter a URL that starts with https://</string>
+    <string name="lists_update_done">Updated %1$d lists</string>
+    <string name="lists_update_failed">Failed to update %1$s: %2$s</string>
+    <string name="lists_formats">Supported formats: hosts files (0.0.0.0 example.com), plain domain lists and AdBlock domain rules (||example.com^)</string>
+
+    <string name="rules_deny_title">Also block these domains</string>
+    <string name="rules_allow_title">Always allow these domains</string>
+    <string name="rules_empty">None</string>
+    <string name="rules_add_domain">Add domain</string>
+    <string name="rules_domain_hint">e.g. ads.example.com</string>
+    <string name="rules_invalid_domain">Invalid domain</string>
+    <string name="rules_added">Added %1$s</string>
+    <string name="rules_subdomain_note">Subdomains are included. The allowlist takes precedence over all blocklists.</string>
+
+    <string name="log_empty">No queries yet</string>
+    <string name="log_filter_all">All</string>
+    <string name="log_filter_blocked">Blocked only</string>
+    <string name="log_disabled">Query logging is disabled in settings</string>
+    <string name="log_blocked">Blocked</string>
+    <string name="log_allowed">Allowed</string>
+    <string name="log_blocked_by_user">Blocked (user rule)</string>
+    <string name="log_allowed_by_user">Allowed (user rule)</string>
+    <string name="log_count">Last %1$d queries</string>
+
+    <string name="settings_upstream_title">Upstream DNS server</string>
+    <string name="settings_upstream_system">System DNS (current network)</string>
+    <string name="settings_upstream_cloudflare">Cloudflare (1.1.1.1)</string>
+    <string name="settings_upstream_google">Google (8.8.8.8)</string>
+    <string name="settings_upstream_quad9">Quad9 (9.9.9.9)</string>
+    <string name="settings_upstream_adguard">AdGuard DNS (94.140.14.14)</string>
+    <string name="settings_upstream_custom">Custom</string>
+    <string name="settings_upstream_custom_hint">IP addresses (comma separated)</string>
+    <string name="settings_block_mode_title">Response for blocked domains</string>
+    <string name="settings_block_mode_nxdomain">NXDOMAIN (domain does not exist)</string>
+    <string name="settings_block_mode_zero">Return 0.0.0.0 / :: (hosts file style)</string>
+    <string name="settings_behavior_title">Behavior</string>
+    <string name="settings_ipv6">Also filter IPv6 DNS</string>
+    <string name="settings_ipv6_summary">Changing this restarts the VPN</string>
+    <string name="settings_autostart">Start automatically at boot</string>
+    <string name="settings_autoupdate">Update blocklists automatically (daily)</string>
+    <string name="settings_querylog">Keep a query log</string>
+    <string name="settings_builtin">Use the built-in base list</string>
+    <string name="settings_about_title">About</string>
+    <string name="settings_about_version">Version %1$s</string>
+    <string name="settings_about_text">Runs as a local VPN built on VpnService that intercepts only the DNS queries of the device and blocks advertising and tracking domains. Only DNS is routed through the VPN; everything else flows directly as usual. No root required.</string>
+    <string name="settings_about_limitations">Limitations: services that serve ads from their own domain (such as the YouTube app), a custom secure DNS provider in Chrome, Android Private DNS with a hostname, and apps with hard-coded DNS servers are not covered.</string>
+    <string name="settings_source_code">Source code (GitHub)</string>
+
+    <string name="notification_channel_status">VPN status</string>
+    <string name="notification_running">Ad blocking active</string>
+    <string name="notification_starting">Starting ad blocking</string>
+    <string name="notification_stats">Blocked %1$d of %2$d queries</string>
+
+    <string name="tile_on">On</string>
+    <string name="tile_off">Off</string>
+</resources>
