@@ -14,14 +14,37 @@ import com.winschneid.adblocker.ui.MainActivity
 import com.winschneid.adblocker.vpn.AdBlockVpnService
 import com.winschneid.adblocker.vpn.VpnStateHolder
 import com.winschneid.adblocker.vpn.VpnStatus
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /** Quick Settings tile that toggles the ad blocker. */
 class AdBlockTileService : TileService() {
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var statusUpdates: Job? = null
+
     override fun onStartListening() {
         super.onStartListening()
         Graph.init(this)
-        refresh()
+        // Starting and stopping the VPN is asynchronous, so the state right after a tap is still the old one.
+        // Follow the status for as long as the tile is visible (the first emission is the current state).
+        statusUpdates?.cancel()
+        statusUpdates = scope.launch { VpnStateHolder.status.collect { refresh() } }
+    }
+
+    override fun onStopListening() {
+        statusUpdates?.cancel()
+        statusUpdates = null
+        super.onStopListening()
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
     }
 
     override fun onClick() {
