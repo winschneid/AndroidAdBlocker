@@ -3,6 +3,7 @@ package com.winschneid.adblocker.vpn
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.net.LinkProperties
@@ -12,6 +13,7 @@ import android.net.NetworkRequest
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.system.OsConstants
 import android.util.Log
 import com.winschneid.adblocker.Graph
 import com.winschneid.adblocker.R
@@ -40,9 +42,11 @@ class AdBlockVpnService : VpnService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var observers: Job? = null
+
+    @Volatile
     private var session: VpnSession? = null
     private var sessionIpv6 = false
-    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private val networkCallbacks = ArrayList<ConnectivityManager.NetworkCallback>()
 
     @Volatile
     private var systemDnsServers: List<InetAddress> = emptyList()
@@ -50,7 +54,7 @@ class AdBlockVpnService : VpnService() {
     override fun onCreate() {
         super.onCreate()
         Graph.init(this)
-        registerNetworkCallback()
+        registerNetworkCallbacks()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -79,7 +83,7 @@ class AdBlockVpnService : VpnService() {
         observers?.cancel()
         session?.close()
         session = null
-        unregisterNetworkCallback()
+        unregisterNetworkCallbacks()
         serviceScope.cancel()
         if (VpnStateHolder.status.value != VpnStatus.STOPPED) VpnStateHolder.setStatus(VpnStatus.STOPPED)
         AdBlockTileService.requestUpdate(this)
@@ -99,6 +103,7 @@ class AdBlockVpnService : VpnService() {
             return
         }
         val settings = Graph.settings.current
+        refreshSystemDns()
         val tun: ParcelFileDescriptor = try {
             establishTun(settings) ?: throw IllegalStateException("establish() returned null")
         } catch (e: Exception) {
@@ -137,7 +142,7 @@ class AdBlockVpnService : VpnService() {
             launch {
                 Graph.settings.flow.collect { settings ->
                     engine.blockMode = settings.blockMode
-                    activeSession.upstreams = upstreamsFor(settings)
+                    applyUpstreams(activeSession, settings)
                     activeSession.logEnabled = settings.queryLogEnabled
                     if (settings.ipv6Enabled != sessionIpv6 && session === activeSession) {
                         Log.i(TAG, "IPv6 setting changed; restarting the VPN")
@@ -198,6 +203,16 @@ class AdBlockVpnService : VpnService() {
                 .addDnsServer(DNS6_ADDRESS)
                 .addRoute(DNS6_ADDRESS, 128)
         }
+        // A family without any address, route or DNS server is blocked for every app by default. This VPN
+        // only carries DNS, so all other traffic of both families must keep flowing over the real network.
+        builder.allowFamily(OsConstants.AF_INET).allowFamily(OsConstants.AF_INET6)
+        // Keep our own traffic (upstream DNS, list downloads) off the VPN. This also makes activeNetwork
+        // report the real underlying network to this app, which is what refreshSystemDns() relies on.
+        try {
+            builder.addDisallowedApplication(packageName)
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.w(TAG, "Could not exclude this app from the VPN", e)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
         val configure = PendingIntent.getActivity(
             this,
@@ -216,6 +231,15 @@ class AdBlockVpnService : VpnService() {
             else -> parseAddresses(settings.upstream.addresses)
         }
         return addresses.map { InetSocketAddress(it, DNS_PORT) }
+    }
+
+    /** Points [target] at the upstream resolvers for [settings]; logs when they actually change. */
+    private fun applyUpstreams(target: VpnSession, settings: UserSettings) {
+        val updated = upstreamsFor(settings)
+        if (updated != target.upstreams) {
+            target.upstreams = updated
+            Log.i(TAG, "Upstream DNS changed: $updated")
+        }
     }
 
     private fun isOurAddress(address: InetAddress): Boolean {
@@ -238,37 +262,65 @@ class AdBlockVpnService : VpnService() {
         }
     }
 
-    private fun registerNetworkCallback() {
+    /**
+     * Re-reads the DNS servers of the device's default network (the one a "system DNS" upstream must use).
+     *
+     * This app is excluded from its own VPN, so [ConnectivityManager.getActiveNetwork] is the real underlying
+     * network here (Wi-Fi, mobile data, ...). The servers must come from that network only: the ones of a
+     * secondary network (for example mobile data that another app requests while the device is on Wi-Fi)
+     * cannot be reached through the default network, and every lookup on the device would fail.
+     */
+    private fun refreshSystemDns() {
         val manager = getSystemService(ConnectivityManager::class.java) ?: return
-        manager.activeNetwork?.let { network ->
-            manager.getLinkProperties(network)?.dnsServers?.let { systemDnsServers = it }
-        }
-        val request = NetworkRequest.Builder()
+        val servers = manager.activeNetwork?.let { manager.getLinkProperties(it) }?.dnsServers ?: return
+        systemDnsServers = servers
+        session?.let { applyUpstreams(it, Graph.settings.current) }
+    }
+
+    /**
+     * Connectivity callbacks are used purely as "something changed" signals for [refreshSystemDns]; what they
+     * report is not used directly. The default-network callback alone is not enough because a VPN app is
+     * always told that its own VPN is its default network, so a second one watches the real networks.
+     */
+    private fun registerNetworkCallbacks() {
+        val manager = getSystemService(ConnectivityManager::class.java) ?: return
+        refreshSystemDns()
+        val realNetworks = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
             .build()
-        val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
-                systemDnsServers = linkProperties.dnsServers
-                session?.upstreams = upstreamsFor(Graph.settings.current)
-            }
-        }
         try {
-            manager.registerNetworkCallback(request, callback)
-            networkCallback = callback
+            val defaultNetwork = ConnectivityChangeCallback()
+            manager.registerDefaultNetworkCallback(defaultNetwork)
+            networkCallbacks.add(defaultNetwork)
+            val otherNetworks = ConnectivityChangeCallback()
+            manager.registerNetworkCallback(realNetworks, otherNetworks)
+            networkCallbacks.add(otherNetworks)
         } catch (e: RuntimeException) {
             Log.w(TAG, "Could not register network callback", e)
         }
     }
 
-    private fun unregisterNetworkCallback() {
-        val callback = networkCallback ?: return
-        networkCallback = null
-        try {
-            getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(callback)
-        } catch (e: RuntimeException) {
-            Log.w(TAG, "Could not unregister network callback", e)
+    private fun unregisterNetworkCallbacks() {
+        val manager = getSystemService(ConnectivityManager::class.java)
+        for (callback in networkCallbacks) {
+            try {
+                manager?.unregisterNetworkCallback(callback)
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "Could not unregister network callback", e)
+            }
         }
+        networkCallbacks.clear()
+    }
+
+    private inner class ConnectivityChangeCallback : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) = refreshSystemDns()
+
+        override fun onLost(network: Network) = refreshSystemDns()
+
+        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) = refreshSystemDns()
+
+        override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) = refreshSystemDns()
     }
 
     private fun refreshNotification() {
