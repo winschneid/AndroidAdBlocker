@@ -51,6 +51,9 @@ class AdBlockVpnService : VpnService() {
     @Volatile
     private var systemDnsServers: List<InetAddress> = emptyList()
 
+    /** Set when the user swipes the status notification away; cleared whenever the VPN is (re)started. */
+    private var notificationDismissed = false
+
     override fun onCreate() {
         super.onCreate()
         Graph.init(this)
@@ -65,6 +68,12 @@ class AdBlockVpnService : VpnService() {
             }
             ACTION_RESTART -> {
                 restartVpn()
+                START_STICKY
+            }
+            ACTION_NOTIFICATION_DISMISSED -> {
+                notificationDismissed = true
+                Log.i(TAG, "Status notification dismissed by the user; not showing it again until the next start")
+                if (session == null) stopSelf() // the notification outlived the VPN: nothing to keep running for
                 START_STICKY
             }
             else -> {
@@ -96,6 +105,7 @@ class AdBlockVpnService : VpnService() {
             return
         }
         VpnStateHolder.setStatus(VpnStatus.STARTING)
+        notificationDismissed = false
         startForegroundCompat(NotificationHelper.buildStatusNotification(this, VpnStateHolder.stats.value, running = false))
 
         if (prepare(this) != null) {
@@ -158,7 +168,7 @@ class AdBlockVpnService : VpnService() {
                     val current = VpnStateHolder.stats.value
                     if (current != lastShown) {
                         lastShown = current
-                        refreshNotification(onlyIfShown = true)
+                        refreshNotification(unlessDismissed = true)
                     }
                 }
             }
@@ -326,11 +336,11 @@ class AdBlockVpnService : VpnService() {
 
     /**
      * Updates the status notification. Posting an update re-shows a notification the user has swiped away, so
-     * the periodic counter updates pass [onlyIfShown] and leave a dismissed notification alone; it comes back
-     * when the VPN is started again, because a foreground service must show one.
+     * the periodic counter updates pass [unlessDismissed] and leave a dismissed notification alone; it comes
+     * back when the VPN is started again, because a foreground service must show one.
      */
-    private fun refreshNotification(onlyIfShown: Boolean = false) {
-        if (onlyIfShown && !NotificationHelper.isShown(this)) return
+    private fun refreshNotification(unlessDismissed: Boolean = false) {
+        if (unlessDismissed && notificationDismissed) return
         val running = session != null
         NotificationHelper.update(this, NotificationHelper.buildStatusNotification(this, VpnStateHolder.stats.value, running))
     }
@@ -348,6 +358,7 @@ class AdBlockVpnService : VpnService() {
         const val ACTION_START = "com.winschneid.adblocker.action.START"
         const val ACTION_STOP = "com.winschneid.adblocker.action.STOP"
         const val ACTION_RESTART = "com.winschneid.adblocker.action.RESTART"
+        const val ACTION_NOTIFICATION_DISMISSED = "com.winschneid.adblocker.action.NOTIFICATION_DISMISSED"
 
         private const val MTU = 1500
         private const val DNS_PORT = 53

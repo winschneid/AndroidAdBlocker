@@ -29,12 +29,15 @@ object NotificationHelper {
         val openApp = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), flags)
         val stopIntent = Intent(context, AdBlockVpnService::class.java).setAction(AdBlockVpnService.ACTION_STOP)
         val stop = PendingIntent.getService(context, 1, stopIntent, flags)
+        val dismissedIntent = Intent(context, AdBlockVpnService::class.java).setAction(AdBlockVpnService.ACTION_NOTIFICATION_DISMISSED)
+        val dismissed = PendingIntent.getService(context, 2, dismissedIntent, flags)
         val icon = Icon.createWithResource(context, R.drawable.ic_stat_shield)
         return Notification.Builder(context, CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_stat_shield)
             .setContentTitle(context.getString(if (running) R.string.notification_running else R.string.notification_starting))
             .setContentText(context.getString(R.string.notification_stats, stats.blockedQueries, stats.totalQueries))
             .setContentIntent(openApp)
+            .setDeleteIntent(dismissed) // fired when the user swipes the notification away (Android 13+)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_SERVICE)
@@ -45,18 +48,5 @@ object NotificationHelper {
 
     fun update(context: Context, notification: Notification) {
         context.getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification)
-    }
-
-    /**
-     * Whether the status notification is currently on screen. It is gone once the user has swiped it away
-     * (possible since Android 13) or has turned notifications off; posting an update would bring it back.
-     */
-    fun isShown(context: Context): Boolean {
-        val manager = context.getSystemService(NotificationManager::class.java) ?: return false
-        return try {
-            manager.activeNotifications.any { it.id == NOTIFICATION_ID }
-        } catch (e: RuntimeException) {
-            true // cannot tell: keep the previous behaviour of updating it
-        }
     }
 }
