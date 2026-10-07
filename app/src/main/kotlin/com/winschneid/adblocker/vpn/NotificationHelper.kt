@@ -1,0 +1,52 @@
+package com.winschneid.adblocker.vpn
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.graphics.drawable.Icon
+import com.winschneid.adblocker.R
+import com.winschneid.adblocker.ui.MainActivity
+
+object NotificationHelper {
+    const val CHANNEL_STATUS = "vpn_status"
+    const val NOTIFICATION_ID = 1
+
+    fun createChannels(context: Context) {
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        val channel = NotificationChannel(
+            CHANNEL_STATUS,
+            context.getString(R.string.notification_channel_status),
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply { setShowBadge(false) }
+        manager.createNotificationChannel(channel)
+    }
+
+    fun buildStatusNotification(context: Context, stats: VpnStats, running: Boolean): Notification {
+        val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        val openApp = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), flags)
+        val stopIntent = Intent(context, AdBlockVpnService::class.java).setAction(AdBlockVpnService.ACTION_STOP)
+        val stop = PendingIntent.getService(context, 1, stopIntent, flags)
+        val dismissedIntent = Intent(context, AdBlockVpnService::class.java).setAction(AdBlockVpnService.ACTION_NOTIFICATION_DISMISSED)
+        val dismissed = PendingIntent.getService(context, 2, dismissedIntent, flags)
+        val icon = Icon.createWithResource(context, R.drawable.ic_stat_shield)
+        return Notification.Builder(context, CHANNEL_STATUS)
+            .setSmallIcon(R.drawable.ic_stat_shield)
+            .setContentTitle(context.getString(if (running) R.string.notification_running else R.string.notification_starting))
+            .setContentText(context.getString(R.string.notification_stats, stats.blockedQueries, stats.totalQueries))
+            .setContentIntent(openApp)
+            .setDeleteIntent(dismissed) // fired when the user swipes the notification away (Android 13+)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .addAction(Notification.Action.Builder(icon, context.getString(R.string.action_stop), stop).build())
+            .build()
+    }
+
+    fun update(context: Context, notification: Notification) {
+        context.getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification)
+    }
+}

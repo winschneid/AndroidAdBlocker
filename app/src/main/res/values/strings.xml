@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">広告ブロッカー</string>
+
+    <string name="nav_home">ホーム</string>
+    <string name="nav_lists">リスト</string>
+    <string name="nav_log">ログ</string>
+    <string name="nav_settings">設定</string>
+
+    <string name="status_running">有効</string>
+    <string name="status_stopped">停止中</string>
+    <string name="status_starting">起動中…</string>
+    <string name="status_error">エラー</string>
+
+    <string name="action_start">開始</string>
+    <string name="action_stop">停止</string>
+    <string name="action_update_all">すべて更新</string>
+    <string name="action_update">更新</string>
+    <string name="action_add">追加</string>
+    <string name="action_delete">削除</string>
+    <string name="action_cancel">キャンセル</string>
+    <string name="action_clear">消去</string>
+    <string name="action_open_settings">設定を開く</string>
+    <string name="action_allow">許可リストに追加</string>
+    <string name="action_deny">ブロックリストに追加</string>
+
+    <string name="home_description">端末内だけで動くローカル VPN として DNS の問い合わせを横取りし、広告・トラッカーのドメインを名前解決の段階で遮断します。Chrome を含むすべてのアプリに効きます。通信内容そのものは VPN を通りません。</string>
+    <string name="stats_blocked">ブロック</string>
+    <string name="stats_total">問い合わせ</string>
+    <string name="stats_entries">ブロック対象ドメイン数</string>
+    <string name="stats_block_rate">%1$d%% をブロック</string>
+    <string name="warning_private_dns_title">プライベート DNS が有効です</string>
+    <string name="warning_private_dns">Android の「プライベート DNS」がホスト名指定になっていると、Chrome などの名前解決がこのアプリを経由しません。ネットワーク設定でプライベート DNS を「オフ」または「自動」にしてください。</string>
+    <string name="info_chrome_title">Chrome で使うときの注意</string>
+    <string name="info_chrome">Chrome の「設定 › プライバシーとセキュリティ › セキュア DNS」でカスタムプロバイダを指定していると、Chrome が DNS を暗号化して直接送るため広告ブロックが効きません。「現在のサービス プロバイダを使用する」のままにしてください。また、YouTube のように広告が本体と同じドメインから配信されるサービスは DNS 方式では止められません。</string>
+    <string name="error_vpn_permission">VPN の権限が許可されませんでした</string>
+    <string name="error_vpn_failed">VPN を開始できませんでした: %1$s</string>
+    <string name="home_lists_not_downloaded">ブロックリストがまだ取得されていません。内蔵の基本リストのみで動作中です。「リスト」タブから更新できます。</string>
+
+    <string name="lists_title_sources">ブロックリスト</string>
+    <string name="lists_entries">%1$d 件</string>
+    <string name="lists_never_updated">未取得</string>
+    <string name="lists_updated_at">更新: %1$s</string>
+    <string name="lists_error">エラー: %1$s</string>
+    <string name="lists_add_source">リストを追加</string>
+    <string name="lists_source_name">名前</string>
+    <string name="lists_source_url">URL</string>
+    <string name="lists_invalid_url">https:// で始まる URL を入力してください</string>
+    <string name="lists_update_done">%1$d 件のリストを更新しました</string>
+    <string name="lists_update_failed">%1$s の更新に失敗しました: %2$s</string>
+    <string name="lists_formats">対応形式: hosts 形式 (0.0.0.0 example.com)、ドメインのみの一覧、AdBlock 形式のドメインルール (||example.com^)</string>
+
+    <string name="rules_deny_title">追加でブロックするドメイン</string>
+    <string name="rules_allow_title">常に許可するドメイン</string>
+    <string name="rules_empty">なし</string>
+    <string name="rules_add_domain">ドメインを追加</string>
+    <string name="rules_domain_hint">例: ads.example.com</string>
+    <string name="rules_invalid_domain">無効なドメインです</string>
+    <string name="rules_added">%1$s を追加しました</string>
+    <string name="rules_subdomain_note">サブドメインも対象になります。許可リストはブロックリストより優先されます。</string>
+
+    <string name="log_empty">まだ問い合わせがありません</string>
+    <string name="log_filter_all">すべて</string>
+    <string name="log_filter_blocked">ブロックのみ</string>
+    <string name="log_disabled">設定でクエリログが無効になっています</string>
+    <string name="log_blocked">ブロック</string>
+    <string name="log_allowed">許可</string>
+    <string name="log_blocked_by_user">ブロック（手動ルール）</string>
+    <string name="log_allowed_by_user">許可（手動ルール）</string>
+    <string name="log_blocked_by_cname">ブロック（CNAME）</string>
+    <string name="log_cname_target">ブロック対象の %1$s の別名です</string>
+    <string name="log_count">直近 %1$d 件</string>
+
+    <string name="settings_upstream_title">上流 DNS サーバー</string>
+    <string name="settings_upstream_system">システムの DNS（接続中のネットワーク）</string>
+    <string name="settings_upstream_cloudflare">Cloudflare (1.1.1.1)</string>
+    <string name="settings_upstream_google">Google (8.8.8.8)</string>
+    <string name="settings_upstream_quad9">Quad9 (9.9.9.9)</string>
+    <string name="settings_upstream_adguard">AdGuard DNS (94.140.14.14)</string>
+    <string name="settings_upstream_custom">カスタム</string>
+    <string name="settings_upstream_custom_hint">IP アドレス（カンマ区切り）</string>
+    <string name="settings_block_mode_title">ブロック時の応答</string>
+    <string name="settings_block_mode_nxdomain">NXDOMAIN（ドメインが存在しないと返す）</string>
+    <string name="settings_block_mode_zero">0.0.0.0 / :: を返す（hosts ファイル方式）</string>
+    <string name="settings_behavior_title">動作</string>
+    <string name="settings_ipv6">IPv6 の DNS もフィルタする</string>
+    <string name="settings_ipv6_summary">変更すると VPN を再起動します</string>
+    <string name="settings_autostart">端末起動時に自動で開始</string>
+    <string name="settings_autoupdate">ブロックリストを自動更新（1 日ごと）</string>
+    <string name="settings_querylog">クエリログを記録</string>
+    <string name="settings_builtin">内蔵の基本リストを使用</string>
+    <string name="settings_block_aliases">別名（CNAME）で隠された広告ドメインもブロック</string>
+    <string name="settings_block_aliases_summary">広告ブロックを検知するサイトでは、記事の代わりに警告画面が出ることがあります</string>
+    <string name="settings_about_title">このアプリについて</string>
+    <string name="settings_about_version">バージョン %1$s</string>
+    <string name="settings_about_text">VpnService を使ったローカル VPN として動作し、端末の DNS 問い合わせだけを横取りして広告・トラッカーのドメインを遮断します。経路として VPN に乗るのは DNS だけで、他の通信は通常どおり直接流れます。root 不要です。</string>
+    <string name="settings_about_limitations">制限: 広告が本体と同じドメインから配信されるサービス（YouTube アプリなど）、Chrome のカスタム セキュア DNS、Android のプライベート DNS（ホスト名指定）、アプリが独自に埋め込んだ DNS サーバーは対象外です。</string>
+    <string name="settings_source_code">ソースコード (GitHub)</string>
+
+    <string name="notification_channel_status">VPN の状態</string>
+    <string name="notification_running">広告ブロック 有効</string>
+    <string name="notification_starting">広告ブロックを開始しています</string>
+    <string name="notification_stats">ブロック %1$d / 問い合わせ %2$d</string>
+
+    <string name="tile_on">オン</string>
+    <string name="tile_off">オフ</string>
+</resources>
