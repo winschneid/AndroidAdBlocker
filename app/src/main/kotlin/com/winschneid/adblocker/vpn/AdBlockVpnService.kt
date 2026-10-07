@@ -158,7 +158,7 @@ class AdBlockVpnService : VpnService() {
                     val current = VpnStateHolder.stats.value
                     if (current != lastShown) {
                         lastShown = current
-                        refreshNotification()
+                        refreshNotification(onlyIfShown = true)
                     }
                 }
             }
@@ -324,7 +324,13 @@ class AdBlockVpnService : VpnService() {
         override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) = refreshSystemDns()
     }
 
-    private fun refreshNotification() {
+    /**
+     * Updates the status notification. Posting an update re-shows a notification the user has swiped away, so
+     * the periodic counter updates pass [onlyIfShown] and leave a dismissed notification alone; it comes back
+     * when the VPN is started again, because a foreground service must show one.
+     */
+    private fun refreshNotification(onlyIfShown: Boolean = false) {
+        if (onlyIfShown && !NotificationHelper.isShown(this)) return
         val running = session != null
         NotificationHelper.update(this, NotificationHelper.buildStatusNotification(this, VpnStateHolder.stats.value, running))
     }

@@ -46,4 +46,17 @@ object NotificationHelper {
     fun update(context: Context, notification: Notification) {
         context.getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification)
     }
+
+    /**
+     * Whether the status notification is currently on screen. It is gone once the user has swiped it away
+     * (possible since Android 13) or has turned notifications off; posting an update would bring it back.
+     */
+    fun isShown(context: Context): Boolean {
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return false
+        return try {
+            manager.activeNotifications.any { it.id == NOTIFICATION_ID }
+        } catch (e: RuntimeException) {
+            true // cannot tell: keep the previous behaviour of updating it
+        }
+    }
 }
